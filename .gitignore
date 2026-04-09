@@ -1,0 +1,6 @@
+target/
+uploads/
+.settings/
+.classpath
+.project
+*.log
