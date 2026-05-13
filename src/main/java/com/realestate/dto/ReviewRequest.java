@@ -1,0 +1,20 @@
+package com.realestate.dto;
+
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+
+public class ReviewRequest {
+
+    @NotNull(message = "Rating is required")
+    @Min(value = 1, message = "Rating must be at least 1")
+    @Max(value = 5, message = "Rating must be at most 5")
+    private Integer rating;
+
+    private String comment;
+
+    public Integer getRating()             { return rating; }
+    public String  getComment()            { return comment; }
+    public void    setRating(Integer r)    { this.rating = r; }
+    public void    setComment(String c)    { this.comment = c; }
+}
