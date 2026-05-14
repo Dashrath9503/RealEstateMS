@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RealEstateMS — Find Your Dream Property</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<div id="loader" class="loader-overlay"><div class="spinner"></div></div>
+
+<div id="navbar-root"></div>
+<div id="rv-bar"></div>
+
+<!-- HERO -->
+<section class="hero">
+  <div style="position:relative;z-index:1;">
+    <div style="display:inline-block;background:rgba(232,160,32,0.15);border:1px solid rgba(232,160,32,0.4);border-radius:20px;padding:0.3rem 1rem;font-size:0.82rem;font-weight:600;color:var(--accent);margin-bottom:1.2rem;letter-spacing:1px;">
+      🏆 INDIA'S TRUSTED PROPERTY PLATFORM
+    </div>
+    <h1 class="hero-title">Find Your Perfect<br><span>Dream Property</span></h1>
+    <p class="hero-subtitle">Browse thousands of verified properties across India. Buy, sell or rent with confidence.</p>
+
+    <!-- SEARCH BOX -->
+    <div class="search-box">
+      <input type="text" id="s-city" placeholder="🏙 City (e.g. Hyderabad)">
+      <select id="s-type">
+        <option value="">🏠 All Types</option>
+        <option value="APARTMENT">🏢 Apartment</option>
+        <option value="VILLA">🏡 Villa</option>
+        <option value="PLOT">🌳 Plot</option>
+        <option value="COMMERCIAL">🏬 Commercial</option>
+      </select>
+      <input type="number" id="s-min" placeholder="💰 Min Price">
+      <input type="number" id="s-max" placeholder="💰 Max Price">
+      <button class="btn btn-primary btn-lg" onclick="doSearch()">🔍 Search</button>
+    </div>
+  </div>
+</section>
+
+<!-- STATS BAR -->
+<div style="background:var(--primary-light);color:white;padding:1.2rem 2rem;">
+  <div class="container" style="display:flex;gap:3rem;flex-wrap:wrap;justify-content:center;">
+    <div class="text-center"><div style="font-size:1.8rem;font-weight:700;font-family:'Playfair Display',serif;" id="stat-props">—</div><div style="font-size:0.8rem;opacity:0.8;">Listed Properties</div></div>
+    <div class="text-center"><div style="font-size:1.8rem;font-weight:700;font-family:'Playfair Display',serif;" id="stat-users">—</div><div style="font-size:0.8rem;opacity:0.8;">Registered Users</div></div>
+    <div class="text-center"><div style="font-size:1.8rem;font-weight:700;font-family:'Playfair Display',serif;">4+</div><div style="font-size:0.8rem;opacity:0.8;">Cities Covered</div></div>
+    <div class="text-center"><div style="font-size:1.8rem;font-weight:700;font-family:'Playfair Display',serif;">100%</div><div style="font-size:0.8rem;opacity:0.8;">Verified Listings</div></div>
+  </div>
+</div>
+
+<!-- FEATURED PROPERTIES -->
+<section class="section">
+  <div class="container">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:2rem;flex-wrap:wrap;gap:1rem;">
+      <div>
+        <h2 class="section-title">🔥 Most Viewed Properties</h2>
+        <p class="section-subtitle">Trending listings people are looking at right now</p>
+      </div>
+      <a href="/pages/listings.html" class="btn btn-outline">View All →</a>
+    </div>
+    <div class="grid-3" id="featured-grid">
+      <div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--gray);">Loading properties...</div>
+    </div>
+  </div>
+</section>
+
+<!-- PROPERTY TYPES -->
+<section class="section" style="background:var(--white);">
+  <div class="container">
+    <h2 class="section-title text-center">Browse by Type</h2>
+    <p class="section-subtitle text-center mb-4">Find the right category for your needs</p>
+    <div class="grid-4">
+      <a href="/pages/listings.html?type=APARTMENT" class="card" style="text-align:center;padding:2rem;text-decoration:none;">
+        <div style="font-size:3rem;margin-bottom:1rem;">🏢</div>
+        <h3 style="font-size:1.1rem;margin-bottom:0.3rem;">Apartments</h3>
+        <p style="color:var(--gray);font-size:0.85rem;">Modern flats & units</p>
+      </a>
+      <a href="/pages/listings.html?type=VILLA" class="card" style="text-align:center;padding:2rem;text-decoration:none;">
+        <div style="font-size:3rem;margin-bottom:1rem;">🏡</div>
+        <h3 style="font-size:1.1rem;margin-bottom:0.3rem;">Villas</h3>
+        <p style="color:var(--gray);font-size:0.85rem;">Luxury independent homes</p>
+      </a>
+      <a href="/pages/listings.html?type=PLOT" class="card" style="text-align:center;padding:2rem;text-decoration:none;">
+        <div style="font-size:3rem;margin-bottom:1rem;">🌳</div>
+        <h3 style="font-size:1.1rem;margin-bottom:0.3rem;">Plots</h3>
+        <p style="color:var(--gray);font-size:0.85rem;">Open land for development</p>
+      </a>
+      <a href="/pages/listings.html?type=COMMERCIAL" class="card" style="text-align:center;padding:2rem;text-decoration:none;">
+        <div style="font-size:3rem;margin-bottom:1rem;">🏬</div>
+        <h3 style="font-size:1.1rem;margin-bottom:0.3rem;">Commercial</h3>
+        <p style="color:var(--gray);font-size:0.85rem;">Offices & retail spaces</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- WHY US -->
+<section class="section">
+  <div class="container">
+    <h2 class="section-title text-center">Why Choose RealEstateMS?</h2>
+    <p class="section-subtitle text-center mb-4">We make property search simple, fast and transparent</p>
+    <div class="grid-3">
+      <div class="card card-body text-center" style="padding:2rem;">
+        <div style="font-size:2.5rem;margin-bottom:1rem;">✅</div>
+        <h3 style="font-size:1.1rem;margin-bottom:0.5rem;">Verified Listings</h3>
+        <p style="color:var(--gray);font-size:0.88rem;">Admin-reviewed and approved properties only. No fake listings.</p>
+      </div>
+      <div class="card card-body text-center" style="padding:2rem;">
+        <div style="font-size:2.5rem;margin-bottom:1rem;">🔒</div>
+        <h3 style="font-size:1.1rem;margin-bottom:0.5rem;">Secure Platform</h3>
+        <p style="color:var(--gray);font-size:0.88rem;">JWT-protected accounts with role-based access control.</p>
+      </div>
+      <div class="card card-body text-center" style="padding:2rem;">
+        <div style="font-size:2.5rem;margin-bottom:1rem;">📧</div>
+        <h3 style="font-size:1.1rem;margin-bottom:0.5rem;">Instant Notifications</h3>
+        <p style="color:var(--gray);font-size:0.88rem;">Email alerts sent when someone inquires about your property.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div id="footer-root"></div>
+
+<script src="/js/api.js"></script>
+<script>
+document.getElementById('navbar-root').innerHTML = buildNavbar('home');
+document.getElementById('rv-bar').innerHTML = buildRecentlyViewedBar();
+document.getElementById('footer-root').innerHTML = buildFooter();
+
+async function doSearch() {
+  const city = document.getElementById('s-city').value;
+  const type = document.getElementById('s-type').value;
+  const min  = document.getElementById('s-min').value;
+  const max  = document.getElementById('s-max').value;
+  const params = new URLSearchParams();
+  if (city) params.set('city', city);
+  if (type) params.set('propertyType', type);
+  if (min)  params.set('minPrice', min);
+  if (max)  params.set('maxPrice', max);
+  window.location.href = `/pages/listings.html?${params.toString()}`;
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+
+// Handle URL type param from property type cards
+const urlType = new URLSearchParams(location.search).get('type');
+if (urlType) document.getElementById('s-type').value = urlType;
+
+async function loadFeatured() {
+  try {
+    showLoader();
+    const props = await Properties.getTop();
+    const grid = document.getElementById('featured-grid');
+
+    if (!props.length) {
+      grid.innerHTML = '<div class="empty-state"><div class="icon">🏠</div><h3>No properties yet</h3><p>Be the first to list a property!</p></div>';
+      return;
+    }
+
+    grid.innerHTML = props.slice(0, 6).map(p => buildPropertyCard(p)).join('');
+    const cards = grid.querySelectorAll('.property-card');
+    await markFavorites(Array.from(cards));
+  } catch (e) {
+    document.getElementById('featured-grid').innerHTML = `<div class="alert alert-danger">Could not load properties: ${e.message}</div>`;
+  } finally { hideLoader(); }
+}
+
+async function loadStats() {
+  try {
+    const stats = await Admin.getStats();
+    document.getElementById('stat-props').textContent = stats.totalProperties || 0;
+    document.getElementById('stat-users').textContent = stats.totalUsers || 0;
+  } catch {}
+}
+
+loadFeatured();
+loadStats();
+</script>
+</body>
+</html>
