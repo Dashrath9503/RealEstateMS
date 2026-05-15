@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Saved Properties — RealEstateMS</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<div id="loader" class="loader-overlay"><div class="spinner"></div></div>
+<div id="navbar-root"></div>
+<div id="rv-bar"></div>
+
+<div style="background:var(--primary);color:white;padding:2.5rem 2rem;">
+  <div class="container">
+    <h1 style="font-size:2rem;margin-bottom:0.3rem;">❤️ Saved Properties</h1>
+    <p style="opacity:0.8;">Your personal property wishlist</p>
+  </div>
+</div>
+
+<div class="section">
+  <div class="container">
+    <div id="alert-container"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
+      <div id="count-text" style="color:var(--gray);font-size:0.9rem;">Loading...</div>
+      <a href="/pages/listings.html" class="btn btn-outline">🔍 Browse More Properties</a>
+    </div>
+    <div class="grid-3" id="favs-grid">
+      <div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--gray);">Loading saved properties...</div>
+    </div>
+    <div id="empty-state" class="empty-state hidden">
+      <div class="icon">🤍</div>
+      <h3>No saved properties yet</h3>
+      <p>Tap the heart ♡ icon on any property to save it here for later.</p>
+      <a href="/pages/listings.html" class="btn btn-primary mt-3">Browse Properties</a>
+    </div>
+  </div>
+</div>
+
+<div id="footer-root"></div>
+
+<script src="/js/api.js"></script>
+<script>
+if (!requireAuth()) {}
+document.getElementById('navbar-root').innerHTML = buildNavbar('favorites');
+document.getElementById('rv-bar').innerHTML = buildRecentlyViewedBar();
+document.getElementById('footer-root').innerHTML = buildFooter();
+
+async function loadFavorites() {
+  try {
+    showLoader();
+    const favs = await Favorites.getAll();
+    const grid = document.getElementById('favs-grid');
+    const empty = document.getElementById('empty-state');
+
+    document.getElementById('count-text').textContent = `${favs.length} saved ${favs.length===1?'property':'properties'}`;
+
+    if (!favs.length) {
+      grid.innerHTML = '';
+      empty.classList.remove('hidden');
+      return;
+    }
+
+    grid.innerHTML = favs.map(p => `
+      <div class="card property-card">
+        <div class="card-img" onclick="window.location='property-detail.html?id=${p.id}'">
+          <img src="${p.imageUrls?.length ? API_BASE + p.imageUrls[0] : 'https://via.placeholder.com/400x210?text=No+Image'}"
+               alt="${p.title}" onerror="this.src='https://via.placeholder.com/400x210?text=No+Image'">
+          <span class="property-badge ${p.status?.toLowerCase()}">${p.propertyType}</span>
+          <span class="view-count">👁 ${p.viewCount || 0}</span>
+        </div>
+        <div class="card-body">
+          <div class="property-price">${formatPrice(p.price)}</div>
+          <div class="property-title" onclick="window.location='property-detail.html?id=${p.id}'">${p.title}</div>
+          <div class="property-location">📍 ${p.city}</div>
+          <div class="property-specs">
+            ${p.bedrooms ? `<span class="spec-item">🛏 ${p.bedrooms}</span>` : ''}
+            ${p.bathrooms ? `<span class="spec-item">🚿 ${p.bathrooms}</span>` : ''}
+            ${p.areaSqft ? `<span class="spec-item">📐 ${p.areaSqft} sqft</span>` : ''}
+          </div>
+          <div style="display:flex;gap:0.5rem;margin-top:1rem;">
+            <a href="/pages/property-detail.html?id=${p.id}" class="btn btn-primary btn-sm" style="flex:1;justify-content:center;">View Details</a>
+            <button class="btn btn-danger btn-sm" onclick="removeFav(${p.id}, this)">✕ Remove</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    showAlert('danger', 'Could not load favorites: ' + e.message);
+  } finally { hideLoader(); }
+}
+
+async function removeFav(id, btn) {
+  if (!confirm('Remove from saved properties?')) return;
+  try {
+    await Favorites.remove(id);
+    btn.closest('.card').remove();
+    const remaining = document.querySelectorAll('#favs-grid .card').length;
+    document.getElementById('count-text').textContent = `${remaining} saved properties`;
+    if (!remaining) {
+      document.getElementById('empty-state').classList.remove('hidden');
+    }
+  } catch (e) { alert(e.message); }
+}
+
+loadFavorites();
+</script>
+</body>
+</html>

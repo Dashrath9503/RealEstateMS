@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Add Property — RealEstateMS</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
+  .form-grid .full { grid-column: 1 / -1; }
+  .upload-area { border: 2px dashed var(--gray-light); border-radius: var(--radius); padding: 2.5rem; text-align: center; cursor: pointer; transition: var(--transition); background: var(--bg); }
+  .upload-area:hover { border-color: var(--primary); background: rgba(37,99,168,0.04); }
+  .preview-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+  .preview-img { width: 90px; height: 70px; object-fit: cover; border-radius: var(--radius-sm); border: 2px solid var(--gray-light); }
+  @media(max-width:600px) { .form-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div id="loader" class="loader-overlay"><div class="spinner"></div></div>
+<div id="navbar-root"></div>
+
+<div style="background:var(--primary);color:white;padding:2.5rem 2rem;">
+  <div class="container">
+    <h1 id="page-title" style="font-size:2rem;margin-bottom:0.3rem;">➕ Add New Property</h1>
+    <p style="opacity:0.8;font-size:0.9rem;">List your property to reach thousands of buyers</p>
+  </div>
+</div>
+
+<div class="section">
+  <div class="container" style="max-width:780px;">
+    <div id="alert-container"></div>
+
+    <div class="card card-body" style="padding:2.5rem;">
+      <div class="form-grid">
+        <div class="full form-group">
+          <label class="form-label">Property Title *</label>
+          <input type="text" id="f-title" class="form-control" placeholder="e.g. Spacious 3BHK Apartment in Gachibowli">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Property Type *</label>
+          <select id="f-type" class="form-control">
+            <option value="">— Select Type —</option>
+            <option value="APARTMENT">🏢 Apartment</option>
+            <option value="VILLA">🏡 Villa</option>
+            <option value="PLOT">🌳 Plot</option>
+            <option value="COMMERCIAL">🏬 Commercial</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Price (₹) *</label>
+          <input type="number" id="f-price" class="form-control" placeholder="e.g. 5500000">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">City *</label>
+          <input type="text" id="f-city" class="form-control" placeholder="e.g. Hyderabad">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Area (sqft)</label>
+          <input type="number" id="f-area" class="form-control" placeholder="e.g. 1200">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Bedrooms</label>
+          <select id="f-beds" class="form-control">
+            <option value="">N/A</option>
+            <option value="1">1</option><option value="2">2</option>
+            <option value="3">3</option><option value="4">4</option>
+            <option value="5">5+</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Bathrooms</label>
+          <select id="f-baths" class="form-control">
+            <option value="">N/A</option>
+            <option value="1">1</option><option value="2">2</option>
+            <option value="3">3</option><option value="4">4+</option>
+          </select>
+        </div>
+
+        <div class="full form-group">
+          <label class="form-label">Full Address</label>
+          <input type="text" id="f-addr" class="form-control" placeholder="Plot no, Street, Area, City, State, PIN">
+        </div>
+
+        <div class="full form-group">
+          <label class="form-label">Description</label>
+          <textarea id="f-desc" class="form-control" rows="5" placeholder="Describe your property in detail — features, nearby landmarks, amenities, parking, etc."></textarea>
+        </div>
+
+        <!-- IMAGE UPLOAD -->
+        <div class="full form-group">
+          <label class="form-label">Property Images</label>
+          <div class="upload-area" onclick="document.getElementById('img-input').click()">
+            <div style="font-size:2.5rem;margin-bottom:0.5rem;">📸</div>
+            <p style="font-weight:600;color:var(--gray-dark);">Click to upload images</p>
+            <p style="font-size:0.82rem;color:var(--gray);">JPG, PNG — up to 10MB each. Multiple files allowed.</p>
+          </div>
+          <input type="file" id="img-input" accept="image/*" multiple style="display:none" onchange="previewImages(this)">
+          <div class="preview-grid" id="img-preview"></div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:1rem;justify-content:flex-end;margin-top:1.5rem;">
+        <a href="/pages/dashboard.html" class="btn btn-outline">Cancel</a>
+        <button class="btn btn-accent btn-lg" onclick="submitProperty()">
+          <span id="submit-text">🚀 Submit for Approval</span>
+        </button>
+      </div>
+
+      <p style="color:var(--gray);font-size:0.82rem;margin-top:1rem;text-align:center;">
+        ℹ️ Your listing will be reviewed by admin before going live. Usually takes 24 hours.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+if (!requireAuth()) {}
+if (getRole() === 'BUYER') window.location.href = '/pages/dashboard.html';
+document.getElementById('navbar-root').innerHTML = buildNavbar('dashboard');
+
+const editId = new URLSearchParams(location.search).get('edit');
+let existingProperty = null;
+
+if (editId) {
+  document.getElementById('page-title').textContent = '✏️ Edit Property';
+  document.getElementById('submit-text').textContent = '💾 Update Property';
+  loadEditData();
+}
+
+async function loadEditData() {
+  try {
+    showLoader();
+    const p = await Properties.getById(editId);
+    existingProperty = p;
+    document.getElementById('f-title').value = p.title || '';
+    document.getElementById('f-type').value  = p.propertyType || '';
+    document.getElementById('f-price').value = p.price || '';
+    document.getElementById('f-city').value  = p.city || '';
+    document.getElementById('f-area').value  = p.areaSqft || '';
+    document.getElementById('f-beds').value  = p.bedrooms || '';
+    document.getElementById('f-baths').value = p.bathrooms || '';
+    document.getElementById('f-addr').value  = p.address || '';
+    document.getElementById('f-desc').value  = p.description || '';
+  } catch (e) {
+    showAlert('danger', 'Could not load property: ' + e.message);
+  } finally { hideLoader(); }
+}
+
+function previewImages(input) {
+  const preview = document.getElementById('img-preview');
+  preview.innerHTML = '';
+  Array.from(input.files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = document.createElement('img');
+      img.src = e.target.result;
+      img.className = 'preview-img';
+      preview.appendChild(img);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function submitProperty() {
+  const title = document.getElementById('f-title').value.trim();
+  const type  = document.getElementById('f-type').value;
+  const price = document.getElementById('f-price').value;
+  const city  = document.getElementById('f-city').value.trim();
+
+  if (!title || !type || !price || !city) {
+    showAlert('danger', 'Please fill all required fields (Title, Type, Price, City).');
+    return;
+  }
+
+  const data = {
+    title,
+    propertyType: type,
+    price: parseFloat(price),
+    city,
+    areaSqft:   parseFloat(document.getElementById('f-area').value) || null,
+    bedrooms:   parseInt(document.getElementById('f-beds').value) || null,
+    bathrooms:  parseInt(document.getElementById('f-baths').value) || null,
+    address:    document.getElementById('f-addr').value.trim(),
+    description: document.getElementById('f-desc').value.trim(),
+  };
+
+  try {
+    showLoader();
+    let savedProperty;
+    if (editId) {
+      savedProperty = await Properties.update(editId, data);
+      showAlert('success', 'Property updated successfully!');
+    } else {
+      savedProperty = await Properties.create(data);
+      showAlert('success', '🎉 Property submitted for admin approval!');
+    }
+
+    // Upload images if any selected
+    const files = document.getElementById('img-input').files;
+    if (files.length > 0 && savedProperty?.id) {
+      const form = new FormData();
+      Array.from(files).forEach(f => form.append('files', f));
+      await Properties.uploadImgs(savedProperty.id, form);
+    }
+
+    setTimeout(() => window.location.href = '/pages/dashboard.html', 1500);
+  } catch (e) {
+    showAlert('danger', 'Error: ' + e.message);
+  } finally { hideLoader(); }
+}
+</script>
+</body>
+</html>

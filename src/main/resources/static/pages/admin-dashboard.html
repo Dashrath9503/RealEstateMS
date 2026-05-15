@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Dashboard — RealEstateMS</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .main-content { padding: 2rem; }
+  .admin-header { background: linear-gradient(135deg, #0d1b2a, #1a3c5e); color: white; border-radius: var(--radius); padding: 1.8rem; margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; }
+  .table-wrapper { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th { background: var(--bg); padding: 0.8rem 1rem; text-align: left; font-weight: 700; color: var(--gray); font-size: 0.78rem; text-transform: uppercase; }
+  td { padding: 0.85rem 1rem; border-bottom: 1px solid var(--gray-light); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg); }
+  .chart-bar { height: 12px; background: var(--primary); border-radius: 6px; transition: width 0.5s; }
+</style>
+</head>
+<body>
+
+<div id="loader" class="loader-overlay"><div class="spinner"></div></div>
+<div id="navbar-root"></div>
+
+<div class="dashboard-layout">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-menu">
+      <a href="#" onclick="switchTab('overview')" class="active">📊 Overview</a>
+      <a href="#" onclick="switchTab('pending')">⏳ Pending Approvals</a>
+      <a href="#" onclick="switchTab('allprops')">🏠 All Properties</a>
+      <a href="#" onclick="switchTab('users')">👥 Users</a>
+      <a href="/pages/listings.html">🔍 Browse Site</a>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main-content">
+    <div class="admin-header">
+      <div>
+        <div style="color:var(--accent);font-weight:700;font-size:0.8rem;letter-spacing:1px;">ADMIN PANEL</div>
+        <h2 style="font-size:1.5rem;margin-top:0.2rem;">RealEstateMS Control Center</h2>
+      </div>
+      <div style="text-align:right;opacity:0.75;font-size:0.85rem;">
+        <div id="admin-email">—</div>
+        <div><span class="badge" style="background:var(--accent);color:var(--dark);">ADMINISTRATOR</span></div>
+      </div>
+    </div>
+
+    <div id="alert-container"></div>
+    <div id="main-content-area"></div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+if (!requireAuth()) {}
+if (getRole() !== 'ADMIN') window.location.href = '/pages/dashboard.html';
+
+document.getElementById('navbar-root').innerHTML = buildNavbar('dashboard');
+document.getElementById('admin-email').textContent = getUser()?.email;
+
+let statsCache = null;
+
+async function switchTab(tab) {
+  document.querySelectorAll('.sidebar-menu a').forEach(a => a.classList.remove('active'));
+  const tabMap = { overview: 0, pending: 1, allprops: 2, users: 3 };
+  document.querySelectorAll('.sidebar-menu a')[tabMap[tab]]?.classList.add('active');
+
+  if (tab === 'overview') loadOverview();
+  else if (tab === 'pending') loadPending();
+  else if (tab === 'allprops') loadAllProperties();
+  else if (tab === 'users') loadUsers();
+}
+
+// ── OVERVIEW ─────────────────────────────────────────────────
+
+async function loadOverview() {
+  try {
+    showLoader();
+    const s = await Admin.getStats();
+    statsCache = s;
+
+    document.getElementById('main-content-area').innerHTML = `
+      <!-- Stats Grid -->
+      <div class="grid-4" style="margin-bottom:2rem;">
+        <div class="stat-card"><div class="stat-num">${s.totalUsers}</div><div class="stat-label">👥 Total Users</div></div>
+        <div class="stat-card" style="border-color:var(--accent)"><div class="stat-num" style="color:var(--accent)">${s.totalProperties}</div><div class="stat-label">🏠 Properties</div></div>
+        <div class="stat-card" style="border-color:var(--warning)"><div class="stat-num" style="color:var(--warning)">${s.pendingProperties}</div><div class="stat-label">⏳ Pending</div></div>
+        <div class="stat-card" style="border-color:var(--success)"><div class="stat-num" style="color:var(--success)">${s.totalInquiries}</div><div class="stat-label">📧 Inquiries</div></div>
+      </div>
+
+      <!-- Analytics Charts (Visual) -->
+      <div class="grid-2" style="margin-bottom:2rem;">
+        <div class="card card-body">
+          <h3 style="font-size:1.1rem;margin-bottom:1.2rem;">📊 Platform Analytics</h3>
+          ${buildBarChart([
+            { label: 'Total Users', val: s.totalUsers, max: Math.max(s.totalUsers, 1) },
+            { label: 'Approved', val: s.approvedProperties, max: Math.max(s.totalProperties, 1), color: 'var(--success)' },
+            { label: 'Pending', val: s.pendingProperties, max: Math.max(s.totalProperties, 1), color: 'var(--warning)' },
+            { label: 'Inquiries', val: s.totalInquiries, max: Math.max(s.totalInquiries, 1), color: 'var(--accent)' },
+            { label: 'Favorites', val: s.totalFavorites, max: Math.max(s.totalFavorites, 1), color: '#9b59b6' },
+          ])}
+        </div>
+        <div class="card card-body">
+          <h3 style="font-size:1.1rem;margin-bottom:1.2rem;">📈 Property Status</h3>
+          <div style="display:flex;flex-direction:column;gap:1.2rem;margin-top:1rem;">
+            ${buildDonut(s.approvedProperties, s.pendingProperties, s.totalProperties)}
+          </div>
+          <div style="display:flex;gap:1.5rem;justify-content:center;margin-top:1.5rem;font-size:0.85rem;">
+            <span>🟢 Approved: <strong>${s.approvedProperties}</strong></span>
+            <span>🟡 Pending: <strong>${s.pendingProperties}</strong></span>
+            <span>🔴 Rejected: <strong>${(s.totalProperties - s.approvedProperties - s.pendingProperties) || 0}</strong></span>
+          </div>
+          <div style="margin-top:1.5rem;text-align:center;">
+            <button class="btn btn-primary btn-sm" onclick="switchTab('pending')">Review Pending (${s.pendingProperties}) →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="card card-body">
+        <h3 style="font-size:1.1rem;margin-bottom:1.2rem;">⚡ Quick Actions</h3>
+        <div style="display:flex;gap:1rem;flex-wrap:wrap;">
+          <button class="btn btn-warning" style="background:var(--warning);color:white;" onclick="switchTab('pending')">⏳ Review ${s.pendingProperties} Pending Listings</button>
+          <button class="btn btn-primary" onclick="switchTab('allprops')">🏠 Manage All Properties</button>
+          <button class="btn btn-outline" onclick="switchTab('users')">👥 Manage Users</button>
+        </div>
+      </div>
+    `;
+  } catch (e) {
+    showAlert('danger', 'Failed to load stats: ' + e.message);
+  } finally { hideLoader(); }
+}
+
+function buildBarChart(items) {
+  return items.map(item => `
+    <div style="margin-bottom:0.8rem;">
+      <div style="display:flex;justify-content:space-between;font-size:0.82rem;margin-bottom:0.3rem;">
+        <span style="color:var(--gray-dark);">${item.label}</span>
+        <strong>${item.val}</strong>
+      </div>
+      <div style="background:var(--gray-light);border-radius:6px;height:12px;">
+        <div class="chart-bar" style="width:${Math.round((item.val/item.max)*100)}%;background:${item.color||'var(--primary)'};"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function buildDonut(approved, pending, total) {
+  const total2 = total || 1;
+  const ap = Math.round((approved/total2)*100);
+  const pp = Math.round((pending/total2)*100);
+  return `
+    <div style="text-align:center;">
+      <div style="width:140px;height:140px;border-radius:50%;background:conic-gradient(var(--success) 0% ${ap}%, var(--warning) ${ap}% ${ap+pp}%, var(--danger) ${ap+pp}% 100%);margin:0 auto;display:flex;align-items:center;justify-content:center;">
+        <div style="width:90px;height:90px;background:white;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;">
+          <div style="font-size:1.4rem;font-weight:700;color:var(--primary);">${total}</div>
+          <div style="font-size:0.7rem;color:var(--gray);">Total</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ── PENDING APPROVALS ─────────────────────────────────────────
+
+async function loadPending() {
+  try {
+    showLoader();
+    const props = await Admin.getPending();
+    const html = !props.length
+      ? `<div class="empty-state"><div class="icon">✅</div><h3>All caught up!</h3><p>No pending properties to review.</p></div>`
+      : `<div class="table-wrapper"><table>
+          <thead><tr><th>Property</th><th>Owner</th><th>City</th><th>Price</th><th>Date</th><th>Actions</th></tr></thead>
+          <tbody>${props.map(p => `
+            <tr>
+              <td>
+                <strong>${p.title}</strong><br>
+                <span style="font-size:0.78rem;color:var(--gray);">${p.propertyType} · ${p.areaSqft||'?'} sqft</span>
+              </td>
+              <td>${p.ownerName}<br><span style="font-size:0.78rem;color:var(--gray);">${p.ownerEmail}</span></td>
+              <td>📍 ${p.city}</td>
+              <td>${formatPrice(p.price)}</td>
+              <td>${formatDate(p.createdAt)}</td>
+              <td>
+                <a href="/pages/property-detail.html?id=${p.id}" class="btn btn-outline btn-sm">View</a>
+                <button class="btn btn-success btn-sm" onclick="approveProperty(${p.id})">✓ Approve</button>
+                <button class="btn btn-danger btn-sm" onclick="rejectProperty(${p.id})">✗ Reject</button>
+              </td>
+            </tr>`).join('')}
+          </tbody></table></div>`;
+    document.getElementById('main-content-area').innerHTML = `
+      <h2 style="margin-bottom:1.5rem;">⏳ Pending Approvals <span class="badge badge-warning">${props.length}</span></h2>
+      <div class="card card-body">${html}</div>`;
+  } catch (e) {
+    showAlert('danger', e.message);
+  } finally { hideLoader(); }
+}
+
+async function approveProperty(id) {
+  try {
+    showLoader();
+    await Admin.approve(id);
+    showAlert('success', '✓ Property approved and owner notified!');
+    loadPending();
+  } catch (e) { showAlert('danger', e.message); }
+  finally { hideLoader(); }
+}
+
+async function rejectProperty(id) {
+  if (!confirm('Reject this property?')) return;
+  try {
+    showLoader();
+    await Admin.reject(id);
+    showAlert('success', 'Property rejected.');
+    loadPending();
+  } catch (e) { showAlert('danger', e.message); }
+  finally { hideLoader(); }
+}
+
+// ── ALL PROPERTIES ────────────────────────────────────────────
+
+async function loadAllProperties() {
+  try {
+    showLoader();
+    const props = await Admin.getAllProps();
+    document.getElementById('main-content-area').innerHTML = `
+      <h2 style="margin-bottom:1.5rem;">🏠 All Properties <span class="badge badge-primary">${props.length}</span></h2>
+      <div class="card card-body">
+        <div class="table-wrapper"><table>
+          <thead><tr><th>Title</th><th>Owner</th><th>City</th><th>Price</th><th>Status</th><th>Views</th><th>Actions</th></tr></thead>
+          <tbody>${props.map(p => `
+            <tr>
+              <td><strong>${p.title}</strong><br><span style="font-size:0.78rem;color:var(--gray);">${p.propertyType}</span></td>
+              <td>${p.ownerName}</td>
+              <td>📍 ${p.city}</td>
+              <td>${formatPrice(p.price)}</td>
+              <td><span class="badge badge-${p.status==='APPROVED'?'success':p.status==='PENDING'?'warning':'danger'}">${p.status}</span></td>
+              <td>👁 ${p.viewCount||0}</td>
+              <td>
+                <a href="/pages/property-detail.html?id=${p.id}" class="btn btn-outline btn-sm">View</a>
+                ${p.status==='PENDING'?`<button class="btn btn-success btn-sm" onclick="approveProperty(${p.id})">Approve</button>`:''}
+                <button class="btn btn-danger btn-sm" onclick="adminDeleteProperty(${p.id})">Delete</button>
+              </td>
+            </tr>`).join('')}
+          </tbody></table></div>
+      </div>`;
+  } catch (e) {
+    showAlert('danger', e.message);
+  } finally { hideLoader(); }
+}
+
+async function adminDeleteProperty(id) {
+  if (!confirm('Permanently delete this property?')) return;
+  try {
+    showLoader();
+    await Admin.deleteProperty(id);
+    showAlert('success', 'Property deleted.');
+    loadAllProperties();
+  } catch (e) { showAlert('danger', e.message); }
+  finally { hideLoader(); }
+}
+
+// ── USERS ─────────────────────────────────────────────────────
+
+async function loadUsers() {
+  try {
+    showLoader();
+    const users = await Admin.getUsers();
+    document.getElementById('main-content-area').innerHTML = `
+      <h2 style="margin-bottom:1.5rem;">👥 All Users <span class="badge badge-primary">${users.length}</span></h2>
+      <div class="card card-body">
+        <div class="table-wrapper"><table>
+          <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Registered</th><th>Actions</th></tr></thead>
+          <tbody>${users.map(u => `
+            <tr>
+              <td><strong>${u.name}</strong></td>
+              <td>${u.email}</td>
+              <td>${u.phone||'—'}</td>
+              <td><span class="badge badge-${u.role==='ADMIN'?'danger':u.role==='OWNER'?'warning':'primary'}">${u.role}</span></td>
+              <td>${formatDate(u.createdAt)}</td>
+              <td>
+                ${u.role !== 'ADMIN' ? `<button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">Delete</button>` : '<span style="color:var(--gray);font-size:0.8rem;">Protected</span>'}
+              </td>
+            </tr>`).join('')}
+          </tbody></table></div>
+      </div>`;
+  } catch (e) {
+    showAlert('danger', e.message);
+  } finally { hideLoader(); }
+}
+
+async function deleteUser(id) {
+  if (!confirm('Delete this user and all their data?')) return;
+  try {
+    showLoader();
+    await Admin.deleteUser(id);
+    showAlert('success', 'User deleted.');
+    loadUsers();
+  } catch (e) { showAlert('danger', e.message); }
+  finally { hideLoader(); }
+}
+
+// Init
+loadOverview();
+</script>
+</body>
+</html>
