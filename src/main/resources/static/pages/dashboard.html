@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Dashboard — RealEstateMS</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .main-content { padding: 2rem; }
+  .welcome-bar { background: linear-gradient(135deg, var(--primary), var(--primary-light)); color: white; border-radius: var(--radius); padding: 1.8rem; margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+  .welcome-bar h2 { font-size: 1.5rem; margin-bottom: 0.2rem; }
+  .table-wrapper { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th { background: var(--bg); padding: 0.8rem 1rem; text-align: left; font-weight: 700; color: var(--gray); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
+  td { padding: 0.9rem 1rem; border-bottom: 1px solid var(--gray-light); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg); }
+  textarea.form-control { width: 100%; padding: 0.4rem 0.6rem; border: 1px solid var(--gray-light); border-radius: var(--radius); font-size: 0.82rem; resize: vertical; }
+</style>
+</head>
+<body>
+
+<div id="loader" class="loader-overlay"><div class="spinner"></div></div>
+<div id="navbar-root"></div>
+
+<div class="dashboard-layout">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-menu" id="sidebar-menu"></div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main-content">
+    <div id="alert-container"></div>
+    <div class="welcome-bar">
+      <div>
+        <h2>👋 Welcome, <span id="user-name">—</span>!</h2>
+        <p id="user-role-text" style="opacity:0.8;font-size:0.9rem;">Your personal dashboard</p>
+      </div>
+      <div style="text-align:right;opacity:0.8;font-size:0.85rem;">
+        <div id="user-email">—</div>
+        <div id="user-role-badge" style="margin-top:0.3rem;"></div>
+      </div>
+    </div>
+
+    <!-- STATS ROW -->
+    <div id="stats-row" class="grid-4" style="margin-bottom:2rem;"></div>
+
+    <!-- TABS -->
+    <div class="card">
+      <div class="card-body">
+        <div class="tabs" id="dash-tabs"></div>
+        <div id="tab-content"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+if (!requireAuth()) { /* redirects */ }
+
+const user = getUser();
+const role = getRole();
+
+document.getElementById('navbar-root').innerHTML = buildNavbar('dashboard');
+document.getElementById('user-name').textContent = user.name;
+document.getElementById('user-email').textContent = user.email;
+document.getElementById('user-role-badge').innerHTML = `<span class="badge badge-primary">${role}</span>`;
+document.getElementById('user-role-text').textContent = role === 'OWNER' ? 'Owner Dashboard — Manage your property listings' : 'Buyer Dashboard — Track your activity';
+
+// Sidebar
+const buyerMenu = [
+  { icon: '🏠', label: 'My Dashboard', href: 'dashboard.html' },
+  { icon: '❤️', label: 'Saved Properties', href: 'favorites.html' },
+  { icon: '📧', label: 'My Inquiries', href: '#', tab: 'inquiries' },
+  { icon: '🔍', label: 'Browse Properties', href: 'listings.html' },
+];
+const ownerMenu = [
+  { icon: '🏠', label: 'My Dashboard', href: 'dashboard.html' },
+  { icon: '📋', label: 'My Listings', href: '#', tab: 'listings' },
+  { icon: '📧', label: 'Received Inquiries', href: '#', tab: 'inquiries' },
+  { icon: '➕', label: 'Add Property', href: 'add-property.html' },
+];
+
+const menu = role === 'OWNER' ? ownerMenu : buyerMenu;
+document.getElementById('sidebar-menu').innerHTML = menu.map(m =>
+  `<a href="${m.href}" ${m.tab ? `onclick="switchTab('${m.tab}');return false;"` : ''}>${m.icon} ${m.label}</a>`
+).join('');
+
+// ── OWNER DASHBOARD ───────────────────────────────────────────
+
+async function loadOwnerDashboard() {
+  try {
+    showLoader();
+    const [props, inquiries] = await Promise.all([
+      Properties.getMine(), 
+      Inquiries.getReceived()
+    ]);
+    const approved = props.filter(p => p.status === 'APPROVED').length;
+    const pending  = props.filter(p => p.status === 'PENDING').length;
+
+    document.getElementById('stats-row').innerHTML = `
+      <div class="stat-card">
+        <div class="stat-num">${props.length}</div>
+        <div class="stat-label">Total Listings</div>
+      </div>
+      <div class="stat-card" style="border-color:var(--success)">
+        <div class="stat-num" style="color:var(--success)">${approved}</div>
+        <div class="stat-label">Approved</div>
+      </div>
+      <div class="stat-card" style="border-color:var(--warning)">
+        <div class="stat-num" style="color:var(--warning)">${pending}</div>
+        <div class="stat-label">Pending</div>
+      </div>
+      <div class="stat-card" style="border-color:var(--accent)">
+        <div class="stat-num" style="color:var(--accent)">${inquiries.length}</div>
+        <div class="stat-label">Inquiries</div>
+      </div>
+    `;
+
+    document.getElementById('dash-tabs').innerHTML = `
+      <button class="tab-btn active" onclick="switchTab('listings', this)">📋 My Listings (${props.length})</button>
+      <button class="tab-btn" onclick="switchTab('inquiries', this)">📧 Inquiries (${inquiries.length})</button>
+    `;
+
+    window._ownerProps = props;
+    window._ownerInquiries = inquiries;
+    renderOwnerListings(props);
+  } catch (e) {
+    showAlert('danger', 'Failed to load dashboard: ' + e.message);
+  } finally { hideLoader(); }
+}
+
+function renderOwnerListings(props) {
+  const html = !props.length
+    ? `<div class="empty-state">
+         <div class="icon">🏠</div>
+         <h3>No listings yet</h3>
+         <p>Start by adding your first property.</p>
+         <a href="/pages/add-property.html" class="btn btn-primary mt-3">➕ Add Property</a>
+       </div>`
+    : `<div style="display:flex;justify-content:flex-end;margin-bottom:1rem;">
+         <a href="/pages/add-property.html" class="btn btn-accent">➕ Add New Property</a>
+       </div>
+       <div class="table-wrapper">
+       <table>
+         <thead>
+           <tr>
+             <th>Property</th>
+             <th>City</th>
+             <th>Price</th>
+             <th>Status</th>
+             <th>Views</th>
+             <th>Actions</th>
+           </tr>
+         </thead>
+         <tbody>
+           ${props.map(p => `
+             <tr>
+               <td>
+                 <strong>${p.title}</strong><br>
+                 <span style="font-size:0.78rem;color:var(--gray);">${p.propertyType}</span>
+               </td>
+               <td>📍 ${p.city}</td>
+               <td>${formatPrice(p.price)}</td>
+               <td>
+                 <span class="badge badge-${
+                   p.status === 'APPROVED' ? 'success' : 
+                   p.status === 'PENDING'  ? 'warning' : 'danger'
+                 }">${p.status}</span>
+               </td>
+               <td>👁 ${p.viewCount || 0}</td>
+               <td>
+                 <a href="/pages/property-detail.html?id=${p.id}" 
+                    class="btn btn-outline btn-sm">View</a>
+                 <a href="/pages/add-property.html?edit=${p.id}" 
+                    class="btn btn-primary btn-sm">Edit</a>
+                 <button class="btn btn-danger btn-sm" 
+                    onclick="deleteMyProperty(${p.id})">Delete</button>
+               </td>
+             </tr>`).join('')}
+         </tbody>
+       </table></div>`;
+  document.getElementById('tab-content').innerHTML = html;
+}
+
+function renderOwnerInquiries(inquiries) {
+  const html = !inquiries.length
+    ? `<div class="empty-state">
+         <div class="icon">📧</div>
+         <h3>No inquiries yet</h3>
+         <p>Inquiries from buyers will appear here.</p>
+       </div>`
+    : `<div class="table-wrapper">
+       <table>
+         <thead>
+           <tr>
+             <th>From</th>
+             <th>Property</th>
+             <th>Message</th>
+             <th>Status</th>
+             <th>Reply</th>
+             <th>Date</th>
+           </tr>
+         </thead>
+         <tbody>
+           ${inquiries.map(i => `
+             <tr>
+               <td>
+                 <strong>${i.buyerName}</strong><br>
+                 <span style="font-size:0.78rem;color:var(--gray);">${i.buyerEmail}</span>
+               </td>
+               <td>
+                 <a href="/pages/property-detail.html?id=${i.propertyId}" 
+                    style="color:var(--primary);">${i.propertyTitle}
+                 </a>
+               </td>
+               <td style="max-width:200px;">${i.message}</td>
+               <td>
+                 <span class="badge badge-${
+                   i.status === 'REPLIED' ? 'success' :
+                   i.status === 'READ'    ? 'primary' : 'warning'
+                 }">${i.status}</span>
+               </td>
+               <td>
+                 ${i.status !== 'REPLIED' ? `
+                   <textarea
+                     id="reply-${i.id}"
+                     class="form-control mb-1"
+                     placeholder="Type reply..."
+                     rows="2"
+                     style="min-width:180px;font-size:0.82rem;">
+                   </textarea>
+                   <button
+                     class="btn btn-primary btn-sm"
+                     onclick="replyToInquiry(${i.id})">
+                     ✉️ Send Reply
+                   </button>
+                 ` : '<span style="color:var(--success);">✅ Replied</span>'}
+               </td>
+               <td>${formatDate(i.createdAt)}</td>
+             </tr>`).join('')}
+         </tbody>
+       </table></div>`;
+  document.getElementById('tab-content').innerHTML = html;
+}
+
+// ── BUYER DASHBOARD ───────────────────────────────────────────
+
+async function loadBuyerDashboard() {
+  try {
+    showLoader();
+    const [favs, inquiries] = await Promise.all([
+      Favorites.getAll(), 
+      Inquiries.getMine()
+    ]);
+
+    document.getElementById('stats-row').innerHTML = `
+      <div class="stat-card">
+        <div class="stat-num">${favs.length}</div>
+        <div class="stat-label">Saved Properties</div>
+      </div>
+      <div class="stat-card" style="border-color:var(--accent)">
+        <div class="stat-num" style="color:var(--accent)">${inquiries.length}</div>
+        <div class="stat-label">Inquiries Sent</div>
+      </div>
+      <div class="stat-card" style="border-color:var(--success)">
+        <div class="stat-num" style="color:var(--success)">${RecentlyViewed.get().length}</div>
+        <div class="stat-label">Recently Viewed</div>
+      </div>
+    `;
+
+    document.getElementById('dash-tabs').innerHTML = `
+      <button class="tab-btn active" onclick="switchTab('favorites', this)">❤️ Saved (${favs.length})</button>
+      <button class="tab-btn" onclick="switchTab('inquiries', this)">📧 My Inquiries (${inquiries.length})</button>
+      <button class="tab-btn" onclick="switchTab('recent', this)">👁 Recently Viewed</button>
+    `;
+
+    window._buyerFavs = favs;
+    window._buyerInqs = inquiries;
+    renderBuyerFavorites(favs);
+  } catch (e) {
+    showAlert('danger', 'Failed to load dashboard: ' + e.message);
+  } finally { hideLoader(); }
+}
+
+function renderBuyerFavorites(favs) {
+  const html = !favs.length
+    ? `<div class="empty-state">
+         <div class="icon">❤️</div>
+         <h3>No saved properties</h3>
+         <a href="/pages/listings.html" class="btn btn-primary mt-3">Browse Properties</a>
+       </div>`
+    : `<div class="grid-3 mt-2">${favs.map(p => buildPropertyCard(p, false)).join('')}</div>`;
+  document.getElementById('tab-content').innerHTML = html;
+}
+
+function renderBuyerInquiries(inqs) {
+  const html = !inqs.length
+    ? `<div class="empty-state">
+         <div class="icon">📧</div>
+         <h3>No inquiries sent</h3>
+       </div>`
+    : `<div class="table-wrapper">
+       <table>
+         <thead>
+           <tr>
+             <th>Property</th>
+             <th>Message</th>
+             <th>Status</th>
+             <th>Date</th>
+           </tr>
+         </thead>
+         <tbody>
+           ${inqs.map(i => `
+             <tr>
+               <td>
+                 <a href="/pages/property-detail.html?id=${i.propertyId}" 
+                    style="color:var(--primary);">${i.propertyTitle}
+                 </a>
+               </td>
+               <td style="max-width:300px;">${i.message}</td>
+               <td>
+                 <span class="badge badge-${
+                   i.status === 'REPLIED' ? 'success' :
+                   i.status === 'READ'    ? 'primary' : 'warning'
+                 }">${i.status}</span>
+               </td>
+               <td>${formatDate(i.createdAt)}</td>
+             </tr>`).join('')}
+         </tbody>
+       </table></div>`;
+  document.getElementById('tab-content').innerHTML = html;
+}
+
+function renderRecentlyViewed() {
+  const list = RecentlyViewed.get();
+  const html = !list.length
+    ? `<div class="empty-state">
+         <div class="icon">👁</div>
+         <h3>No recently viewed</h3>
+         <p>Browse properties and they'll appear here.</p>
+       </div>`
+    : `<div class="grid-3 mt-2">${list.map(p => `
+        <a href="/pages/property-detail.html?id=${p.id}" class="card" style="text-decoration:none;">
+          <div class="card-body">
+            <div class="property-price">${formatPrice(p.price)}</div>
+            <div class="property-title">${p.title}</div>
+            <div class="property-location">📍 ${p.city}</div>
+          </div>
+        </a>`).join('')}</div>`;
+  document.getElementById('tab-content').innerHTML = html;
+}
+
+// ── TAB SWITCHER ──────────────────────────────────────────────
+
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  if (role === 'OWNER') {
+    if (tab === 'listings')  renderOwnerListings(window._ownerProps || []);
+    if (tab === 'inquiries') renderOwnerInquiries(window._ownerInquiries || []);
+  } else {
+    if (tab === 'favorites') renderBuyerFavorites(window._buyerFavs || []);
+    if (tab === 'inquiries') renderBuyerInquiries(window._buyerInqs || []);
+    if (tab === 'recent')    renderRecentlyViewed();
+  }
+}
+
+// ── ACTIONS ───────────────────────────────────────────────────
+
+async function deleteMyProperty(id) {
+  if (!confirm('Delete this property? This cannot be undone.')) return;
+  try {
+    showLoader();
+    await Properties.delete(id);
+    showAlert('success', 'Property deleted.');
+    loadOwnerDashboard();
+  } catch (e) {
+    showAlert('danger', e.message);
+  } finally { hideLoader(); }
+}
+
+async function replyToInquiry(inquiryId) {
+  const replyMessage = document.getElementById(
+    `reply-${inquiryId}`).value;
+
+  if (!replyMessage.trim()) {
+    alert('Reply likhna zaroori hai!');
+    return;
+  }
+
+  try {
+    showLoader();
+    const response = await fetch(
+      `/inquiries/${inquiryId}/reply`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' +
+          localStorage.getItem('token')
+      },
+      body: JSON.stringify({ replyMessage })
+    });
+
+    if (response.ok) {
+      showAlert('success', '✅ Reply sent! Buyer ko email gaya!');
+      const inquiries = await Inquiries.getReceived();
+      window._ownerInquiries = inquiries;
+      renderOwnerInquiries(inquiries);
+    } else {
+      showAlert('danger', '❌ Reply send nahi hua!');
+    }
+  } catch (error) {
+    showAlert('danger', '❌ Error: ' + error.message);
+  } finally {
+    hideLoader();
+  }
+}
+
+// ── INIT ──────────────────────────────────────────────────────
+
+if (role === 'ADMIN') {
+  window.location.href = '/pages/admin-dashboard.html';
+} else if (role === 'OWNER') {
+  loadOwnerDashboard();
+} else {
+  loadBuyerDashboard();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login / Register — RealEstateMS</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  body { background: linear-gradient(135deg, var(--primary) 0%, #1e4d7b 100%); min-height: 100vh; display: flex; flex-direction: column; }
+  .auth-wrapper { flex: 1; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+  .auth-card { background: white; border-radius: 16px; width: 100%; max-width: 480px; padding: 2.5rem; box-shadow: var(--shadow-lg); }
+  .auth-logo { text-align: center; margin-bottom: 1.5rem; }
+  .auth-logo h1 { font-size: 1.8rem; color: var(--primary); }
+  .auth-logo span { color: var(--accent); }
+  .role-selector { display: flex; gap: 0.5rem; margin-bottom: 1.2rem; }
+  .role-btn { flex: 1; padding: 0.65rem; border: 2px solid var(--gray-light); border-radius: var(--radius-sm); background: white; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: var(--transition); text-align: center; }
+  .role-btn.active { border-color: var(--primary); background: var(--primary); color: white; }
+</style>
+</head>
+<body>
+
+<div id="loader" class="loader-overlay"><div class="spinner"></div></div>
+
+<nav class="navbar">
+  <a href="/index.html" class="navbar-brand">🏠 Real<span>Estate</span>MS</a>
+  <div class="nav-links">
+    <a href="/index.html">← Back to Home</a>
+  </div>
+</nav>
+
+<div class="auth-wrapper">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <h1>🏠 Real<span>EstateMS</span></h1>
+      <p style="color:var(--gray);font-size:0.9rem;margin-top:0.3rem;">Your trusted property platform</p>
+    </div>
+
+    <div id="alert-container"></div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('login', this)">Login</button>
+      <button class="tab-btn" onclick="switchTab('register', this)">Register</button>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <div class="tab-panel active" id="tab-login">
+      <div class="form-group">
+        <label class="form-label">Email Address</label>
+        <input type="email" id="login-email" class="form-control" placeholder="your@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" id="login-pwd" class="form-control" placeholder="Enter password">
+      </div>
+      <button class="btn btn-primary btn-block btn-lg mt-2" onclick="doLogin()">🔑 Login</button>
+      <p style="text-align:center;margin-top:1rem;color:var(--gray);font-size:0.85rem;">
+        Don't have an account? <a href="#" onclick="switchTab('register')" style="color:var(--primary);font-weight:600;">Register here</a>
+      </p>
+    </div>
+
+    <!-- REGISTER FORM -->
+    <div class="tab-panel" id="tab-register">
+      <div class="form-group">
+        <label class="form-label">Full Name</label>
+        <input type="text" id="reg-name" class="form-control" placeholder="Your full name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email Address</label>
+        <input type="email" id="reg-email" class="form-control" placeholder="your@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Phone Number</label>
+        <input type="tel" id="reg-phone" class="form-control" placeholder="10-digit mobile number">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" id="reg-pwd" class="form-control" placeholder="Min 6 characters">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Register As</label>
+        <div class="role-selector">
+          <button class="role-btn active" onclick="selectRole('BUYER', this)">🏠 Buyer</button>
+          <button class="role-btn" onclick="selectRole('OWNER', this)">🔑 Owner / Agent</button>
+        </div>
+        <input type="hidden" id="reg-role" value="BUYER">
+      </div>
+      <button class="btn btn-accent btn-block btn-lg mt-2" onclick="doRegister()">🚀 Create Account</button>
+      <p style="text-align:center;margin-top:1rem;color:var(--gray);font-size:0.85rem;">
+        Already have an account? <a href="#" onclick="switchTab('login')" style="color:var(--primary);font-weight:600;">Login here</a>
+      </p>
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+// Redirect if already logged in
+if (isLoggedIn()) {
+  const role = getRole();
+  if (role === 'ADMIN') window.location.href = '/pages/admin-dashboard.html';
+  else window.location.href = '/pages/dashboard.html';
+}
+
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  if (btn) btn.classList.add('active');
+  else {
+    const btns = document.querySelectorAll('.tab-btn');
+    btns[tab === 'login' ? 0 : 1].classList.add('active');
+  }
+  document.getElementById('alert-container').innerHTML = '';
+}
+
+function selectRole(role, btn) {
+  document.getElementById('reg-role').value = role;
+  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-pwd').value;
+  if (!email || !password) { showAlert('danger', 'Please fill all fields.'); return; }
+  try {
+    showLoader();
+    const data = await Auth.login({ email, password });
+    saveAuth(data);
+    showAlert('success', `Welcome back, ${data.name}! Redirecting...`);
+    setTimeout(() => {
+      if (data.role === 'ADMIN') window.location.href = '/pages/admin-dashboard.html';
+      else window.location.href = '/pages/dashboard.html';
+    }, 1000);
+  } catch (e) {
+    showAlert('danger', e.message || 'Login failed. Check credentials.');
+  } finally { hideLoader(); }
+}
+
+async function doRegister() {
+  const name  = document.getElementById('reg-name').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const phone = document.getElementById('reg-phone').value.trim();
+  const password = document.getElementById('reg-pwd').value;
+  const role  = document.getElementById('reg-role').value;
+
+  if (!name || !email || !password) { showAlert('danger', 'Please fill all required fields.'); return; }
+  if (password.length < 6) { showAlert('danger', 'Password must be at least 6 characters.'); return; }
+
+  try {
+    showLoader();
+    await Auth.register({ name, email, phone, password, role });
+    showAlert('success', 'Account created! Please login.');
+    setTimeout(() => switchTab('login'), 1500);
+  } catch (e) {
+    showAlert('danger', e.message || 'Registration failed.');
+  } finally { hideLoader(); }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    if (document.getElementById('tab-login').classList.contains('active')) doLogin();
+    else doRegister();
+  }
+});
+</script>
+</body>
+</html>
