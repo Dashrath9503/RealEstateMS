@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Browse Properties — RealEstateMS</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .filter-sidebar { background: white; border-radius: var(--radius); padding: 1.5rem; box-shadow: var(--shadow-sm); height: fit-content; position: sticky; top: 80px; }
+  .filter-title { font-size: 1rem; font-weight: 700; margin-bottom: 1.2rem; padding-bottom: 0.8rem; border-bottom: 2px solid var(--gray-light); }
+  .filter-section { margin-bottom: 1.2rem; }
+  .filter-section label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--gray); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.5px; }
+  .listings-layout { display: grid; grid-template-columns: 260px 1fr; gap: 1.5rem; align-items: start; }
+  .sort-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.8rem; }
+  @media(max-width:768px) { .listings-layout { grid-template-columns:1fr; } .filter-sidebar { position: static; } }
+  .type-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .chip { padding: 0.3rem 0.8rem; border: 2px solid var(--gray-light); border-radius: 20px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: var(--transition); background: white; }
+  .chip.active { border-color: var(--primary); background: var(--primary); color: white; }
+  .price-row { display: flex; gap: 0.5rem; }
+  .price-row input { flex: 1; }
+</style>
+</head>
+<body>
+
+<div id="loader" class="loader-overlay"><div class="spinner"></div></div>
+<div id="navbar-root"></div>
+<div id="rv-bar"></div>
+
+<!-- PAGE HEADER -->
+<div style="background:var(--primary);color:white;padding:2.5rem 2rem;">
+  <div class="container">
+    <h1 style="font-size:2rem;margin-bottom:0.3rem;">Browse Properties</h1>
+    <p style="opacity:0.8;font-size:0.95rem;">Discover verified listings across India</p>
+  </div>
+</div>
+
+<div class="section">
+  <div class="container">
+    <div id="alert-container"></div>
+    <div class="listings-layout">
+
+      <!-- FILTER SIDEBAR -->
+      <div class="filter-sidebar">
+        <div class="filter-title">🔍 Filter Properties</div>
+
+        <div class="filter-section">
+          <label>City</label>
+          <input type="text" id="f-city" class="form-control" placeholder="e.g. Hyderabad">
+        </div>
+
+        <div class="filter-section">
+          <label>Property Type</label>
+          <div class="type-chips" id="type-chips">
+            <button class="chip active" data-type="" onclick="selectChip(this)">All</button>
+            <button class="chip" data-type="APARTMENT" onclick="selectChip(this)">🏢 Apartment</button>
+            <button class="chip" data-type="VILLA" onclick="selectChip(this)">🏡 Villa</button>
+            <button class="chip" data-type="PLOT" onclick="selectChip(this)">🌳 Plot</button>
+            <button class="chip" data-type="COMMERCIAL" onclick="selectChip(this)">🏬 Commercial</button>
+          </div>
+          <input type="hidden" id="f-type" value="">
+        </div>
+
+        <div class="filter-section">
+          <label>Price Range (₹)</label>
+          <div class="price-row">
+            <input type="number" id="f-min" class="form-control" placeholder="Min">
+            <input type="number" id="f-max" class="form-control" placeholder="Max">
+          </div>
+        </div>
+
+        <div class="filter-section">
+          <label>Min Bedrooms</label>
+          <select id="f-beds" class="form-control">
+            <option value="">Any</option>
+            <option value="1">1+</option>
+            <option value="2">2+</option>
+            <option value="3">3+</option>
+            <option value="4">4+</option>
+          </select>
+        </div>
+
+        <div class="filter-section">
+          <label>Area (sqft)</label>
+          <div class="price-row">
+            <input type="number" id="f-amin" class="form-control" placeholder="Min">
+            <input type="number" id="f-amax" class="form-control" placeholder="Max">
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-block mt-2" onclick="applyFilters()">Apply Filters</button>
+        <button class="btn btn-outline btn-block mt-1" onclick="clearFilters()">Clear All</button>
+      </div>
+
+      <!-- MAIN CONTENT -->
+      <div>
+        <div class="sort-bar">
+          <div id="result-count" style="color:var(--gray);font-size:0.9rem;">Loading...</div>
+          <div style="display:flex;align-items:center;gap:0.5rem;">
+            <label style="font-size:0.85rem;color:var(--gray);">Sort by:</label>
+            <select id="sort-select" class="form-control" style="width:auto;" onchange="sortAndRender()">
+              <option value="newest">Newest First</option>
+              <option value="price_asc">Price: Low to High</option>
+              <option value="price_desc">Price: High to Low</option>
+              <option value="views">Most Viewed</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid-3" id="listings-grid">
+          <div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--gray);">Loading properties...</div>
+        </div>
+
+        <div id="empty-state" class="empty-state hidden">
+          <div class="icon">🏘</div>
+          <h3>No properties found</h3>
+          <p>Try changing your filters or search in a different city.</p>
+          <button class="btn btn-primary mt-3" onclick="clearFilters()">Clear Filters</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="footer-root"></div>
+
+<script src="/js/api.js"></script>
+<script>
+document.getElementById('navbar-root').innerHTML = buildNavbar('listings');
+document.getElementById('rv-bar').innerHTML = buildRecentlyViewedBar();
+document.getElementById('footer-root').innerHTML = buildFooter();
+
+let allProperties = [];
+
+function selectChip(btn) {
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('f-type').value = btn.dataset.type;
+}
+
+// Read URL params
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('type')) {
+  document.getElementById('f-type').value = urlParams.get('type');
+  document.querySelectorAll('.chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.type === urlParams.get('type'));
+  });
+}
+if (urlParams.get('city')) document.getElementById('f-city').value = urlParams.get('city');
+if (urlParams.get('minPrice')) document.getElementById('f-min').value = urlParams.get('minPrice');
+if (urlParams.get('maxPrice')) document.getElementById('f-max').value = urlParams.get('maxPrice');
+
+async function applyFilters() {
+  const params = {
+    city: document.getElementById('f-city').value,
+    propertyType: document.getElementById('f-type').value,
+    minPrice: document.getElementById('f-min').value,
+    maxPrice: document.getElementById('f-max').value,
+    bedrooms: document.getElementById('f-beds').value,
+    minArea: document.getElementById('f-amin').value,
+    maxArea: document.getElementById('f-amax').value,
+  };
+  try {
+    showLoader();
+    allProperties = await Properties.search(params);
+    sortAndRender();
+  } catch (e) {
+    showAlert('danger', 'Search failed: ' + e.message);
+  } finally { hideLoader(); }
+}
+
+function clearFilters() {
+  document.getElementById('f-city').value = '';
+  document.getElementById('f-type').value = '';
+  document.getElementById('f-min').value = '';
+  document.getElementById('f-max').value = '';
+  document.getElementById('f-beds').value = '';
+  document.getElementById('f-amin').value = '';
+  document.getElementById('f-amax').value = '';
+  document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.type === ''));
+  loadAll();
+}
+
+function sortAndRender() {
+  const sort = document.getElementById('sort-select').value;
+  let list = [...allProperties];
+  if (sort === 'price_asc')  list.sort((a, b) => a.price - b.price);
+  if (sort === 'price_desc') list.sort((a, b) => b.price - a.price);
+  if (sort === 'views')      list.sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0));
+  if (sort === 'newest')     list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  renderGrid(list);
+}
+
+function renderGrid(props) {
+  const grid = document.getElementById('listings-grid');
+  const empty = document.getElementById('empty-state');
+  document.getElementById('result-count').textContent = `${props.length} ${props.length === 1 ? 'property' : 'properties'} found`;
+
+  if (!props.length) {
+    grid.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+  grid.innerHTML = props.map(p => buildPropertyCard(p)).join('');
+  if (isLoggedIn()) markFavorites(Array.from(grid.querySelectorAll('.property-card')));
+}
+
+async function loadAll() {
+  try {
+    showLoader();
+    allProperties = await Properties.getAll();
+    sortAndRender();
+  } catch (e) {
+    showAlert('danger', 'Could not load properties.');
+  } finally { hideLoader(); }
+}
+
+// Initial load
+if (urlParams.has('city') || urlParams.has('type') || urlParams.has('minPrice')) {
+  applyFilters();
+} else {
+  loadAll();
+}
+</script>
+</body>
+</html>
