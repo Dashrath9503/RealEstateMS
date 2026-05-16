@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Property Detail — RealEstateMS</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .detail-layout { display: grid; grid-template-columns: 1fr 360px; gap: 2rem; align-items: start; }
+  .info-row { display: flex; flex-wrap: wrap; gap: 1.5rem; margin: 1.2rem 0; }
+  .info-item { display: flex; flex-direction: column; }
+  .info-label { font-size: 0.78rem; color: var(--gray); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .info-val { font-size: 1rem; font-weight: 700; color: var(--dark); }
+  .owner-card { background: white; border-radius: var(--radius); padding: 1.5rem; box-shadow: var(--shadow-sm); margin-bottom: 1.5rem; }
+  .owner-avatar { width: 52px; height: 52px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; font-weight: 700; }
+  @media(max-width:900px) { .detail-layout { grid-template-columns:1fr; } }
+  .review-card { border-bottom: 1px solid var(--gray-light); padding: 1rem 0; }
+  .review-card:last-child { border-bottom: none; }
+</style>
+</head>
+<body>
+
+<div id="loader" class="loader-overlay"><div class="spinner"></div></div>
+<div id="navbar-root"></div>
+
+<!-- INQUIRY MODAL -->
+<div class="modal-overlay" id="inquiry-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>📧 Contact Property Owner</h3>
+      <button class="modal-close" onclick="closeModal('inquiry-modal')">✕</button>
+    </div>
+    <div id="inq-alert"></div>
+    <div class="form-group">
+      <label class="form-label">Your Message</label>
+      <textarea id="inq-msg" class="form-control" rows="5" placeholder="Hi, I am interested in this property. Please share more details about availability, pricing and any additional features..."></textarea>
+    </div>
+    <div style="display:flex;gap:0.8rem;justify-content:flex-end;">
+      <button class="btn btn-outline" onclick="closeModal('inquiry-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="sendInquiry()">Send Message 📤</button>
+    </div>
+  </div>
+</div>
+
+<!-- REVIEW MODAL -->
+<div class="modal-overlay" id="review-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>⭐ Write a Review</h3>
+      <button class="modal-close" onclick="closeModal('review-modal')">✕</button>
+    </div>
+    <div id="rev-alert"></div>
+    <div class="form-group">
+      <label class="form-label">Rating</label>
+      <div style="display:flex;gap:0.5rem;" id="star-picker">
+        <span class="star-opt" data-v="1" onclick="pickStar(1)" style="font-size:1.8rem;cursor:pointer;">☆</span>
+        <span class="star-opt" data-v="2" onclick="pickStar(2)" style="font-size:1.8rem;cursor:pointer;">☆</span>
+        <span class="star-opt" data-v="3" onclick="pickStar(3)" style="font-size:1.8rem;cursor:pointer;">☆</span>
+        <span class="star-opt" data-v="4" onclick="pickStar(4)" style="font-size:1.8rem;cursor:pointer;">☆</span>
+        <span class="star-opt" data-v="5" onclick="pickStar(5)" style="font-size:1.8rem;cursor:pointer;">☆</span>
+      </div>
+      <input type="hidden" id="rev-rating" value="">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Comment</label>
+      <textarea id="rev-comment" class="form-control" rows="4" placeholder="Share your experience about this property..."></textarea>
+    </div>
+    <div style="display:flex;gap:0.8rem;justify-content:flex-end;">
+      <button class="btn btn-outline" onclick="closeModal('review-modal')">Cancel</button>
+      <button class="btn btn-accent" onclick="submitReview()">Submit Review ✓</button>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="container">
+    <div id="alert-container"></div>
+    <div id="breadcrumb" style="margin-bottom:1.2rem;font-size:0.85rem;color:var(--gray);">
+      <a href="/index.html">Home</a> / <a href="/pages/listings.html">Properties</a> / <span id="bc-title">Loading...</span>
+    </div>
+    <div id="detail-root"></div>
+  </div>
+</div>
+
+<!-- RECOMMENDED SECTION -->
+<section class="section" style="background:white;">
+  <div class="container">
+    <h2 class="section-title mb-3">🎯 Recommended Properties</h2>
+    <p class="section-subtitle">Similar properties in the same city</p>
+    <div class="grid-3" id="recommended-grid"></div>
+  </div>
+</section>
+
+<div id="footer-root"></div>
+
+<script src="/js/api.js"></script>
+<script>
+document.getElementById('navbar-root').innerHTML = buildNavbar('listings');
+document.getElementById('footer-root').innerHTML = buildFooter();
+
+const propertyId = new URLSearchParams(location.search).get('id');
+let currentProperty = null;
+let selectedRating = 0;
+
+if (!propertyId) window.location.href = '/pages/listings.html';
+
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function pickStar(n) {
+  selectedRating = n;
+  document.getElementById('rev-rating').value = n;
+  document.querySelectorAll('.star-opt').forEach((s, i) => {
+    s.textContent = i < n ? '★' : '☆';
+    s.style.color = i < n ? '#f6ad55' : 'inherit';
+  });
+}
+
+async function loadDetail() {
+  try {
+    showLoader();
+    const p = await Properties.getById(propertyId);
+    currentProperty = p;
+    document.title = p.title + ' — RealEstateMS';
+    document.getElementById('bc-title').textContent = p.title;
+    RecentlyViewed.add(p);
+    renderDetail(p);
+    loadReviews();
+    loadRecommended(p.city);
+
+    if (isLoggedIn()) {
+      const isFav = await Favorites.check(propertyId);
+      const favBtn = document.getElementById('fav-toggle');
+      if (favBtn && isFav) { favBtn.textContent = '❤️ Saved'; favBtn.classList.add('active'); }
+    }
+  } catch (e) {
+    document.getElementById('detail-root').innerHTML = `<div class="empty-state"><div class="icon">😔</div><h3>Property not found</h3><p>${e.message}</p></div>`;
+  } finally { hideLoader(); }
+}
+
+function renderDetail(p) {
+  const imgs = p.imageUrls?.length
+    ? p.imageUrls.map((u, i) => ({ url: API_BASE + u, i }))
+    : [{ url: 'https://via.placeholder.com/800x400?text=No+Image', i: 0 }];
+
+  const thumbs = imgs.map(img =>
+    `<img src="${img.url}" class="gallery-thumb ${img.i===0?'active':''}" onclick="switchImg(this, '${img.url}')"
+      onerror="this.src='https://via.placeholder.com/80x60?text=X'">`
+  ).join('');
+
+  const isOwner = isLoggedIn() && getUser()?.id == p.ownerId;
+
+  document.getElementById('detail-root').innerHTML = `
+    <div class="detail-layout">
+      <!-- LEFT -->
+      <div>
+        <!-- Gallery -->
+        <img id="main-img" class="gallery-main" src="${imgs[0].url}"
+          onerror="this.src='https://via.placeholder.com/800x400?text=No+Image'" alt="${p.title}">
+        <div class="gallery-thumbs">${thumbs}</div>
+
+        <!-- Title & Price -->
+        <div style="margin-top:1.5rem;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;">
+            <div>
+              <span class="badge badge-primary">${p.propertyType || 'Property'}</span>
+              <span class="badge badge-${p.status==='APPROVED'?'success':p.status==='PENDING'?'warning':'danger'} ml-1">${p.status || ''}</span>
+              <h1 style="font-size:1.7rem;margin-top:0.5rem;">${p.title}</h1>
+              <p style="color:var(--gray);margin-top:0.3rem;">📍 ${p.address || p.city}</p>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:2rem;font-weight:700;color:var(--primary);font-family:'Playfair Display',serif;">${formatPrice(p.price)}</div>
+              <div style="color:var(--gray);font-size:0.85rem;">👁 ${p.viewCount || 0} views · Listed ${formatDate(p.createdAt)}</div>
+              ${p.averageRating ? `<div class="stars mt-1">${renderStars(p.averageRating)} <span style="color:var(--gray);font-size:0.85rem;">(${p.averageRating?.toFixed(1)})</span></div>` : ''}
+            </div>
+          </div>
+
+          <!-- Specs -->
+          <div class="info-row" style="background:var(--bg);border-radius:var(--radius-sm);padding:1.2rem;margin-top:1rem;">
+            ${p.bedrooms ? `<div class="info-item"><span class="info-label">🛏 Bedrooms</span><span class="info-val">${p.bedrooms}</span></div>` : ''}
+            ${p.bathrooms ? `<div class="info-item"><span class="info-label">🚿 Bathrooms</span><span class="info-val">${p.bathrooms}</span></div>` : ''}
+            ${p.areaSqft ? `<div class="info-item"><span class="info-label">📐 Area</span><span class="info-val">${p.areaSqft} sqft</span></div>` : ''}
+            <div class="info-item"><span class="info-label">🏙 City</span><span class="info-val">${p.city}</span></div>
+            <div class="info-item"><span class="info-label">🔑 Type</span><span class="info-val">${p.propertyType}</span></div>
+          </div>
+
+          <!-- Description -->
+          <div class="card card-body mt-3">
+            <h3 style="font-size:1.1rem;margin-bottom:0.8rem;">About This Property</h3>
+            <p style="color:var(--gray-dark);line-height:1.8;">${p.description || 'No description provided.'}</p>
+          </div>
+
+          <!-- MAP -->
+          <div class="card card-body mt-3">
+            <h3 style="font-size:1.1rem;margin-bottom:0.8rem;">📍 Location</h3>
+            <div class="map-container">
+              <div style="font-size:3rem;">🗺</div>
+              <p style="font-weight:600;">${p.address || p.city}</p>
+              <p style="font-size:0.85rem;color:var(--gray);">Map view — integrate Google Maps API key</p>
+              <a href="https://maps.google.com/?q=${encodeURIComponent((p.address || '') + ' ' + (p.city || ''))}"
+                target="_blank" class="btn btn-outline btn-sm">Open in Google Maps ↗</a>
+            </div>
+          </div>
+
+          <!-- REVIEWS -->
+          <div class="card card-body mt-3">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+              <h3 style="font-size:1.1rem;">⭐ Reviews</h3>
+              ${isLoggedIn() ? `<button class="btn btn-outline btn-sm" onclick="openModal('review-modal')">Write Review</button>` : ''}
+            </div>
+            <div id="reviews-list"><p style="color:var(--gray);">Loading reviews...</p></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT -->
+      <div>
+        <!-- Owner Card -->
+        <div class="owner-card">
+          <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.2rem;">
+            <div class="owner-avatar">${(p.ownerName || 'O')[0].toUpperCase()}</div>
+            <div>
+              <div style="font-weight:700;">${p.ownerName || 'Owner'}</div>
+              <div style="font-size:0.82rem;color:var(--gray);">Property Owner / Agent</div>
+            </div>
+          </div>
+          <div style="font-size:0.85rem;color:var(--gray-dark);margin-bottom:1.2rem;">
+            ${p.ownerEmail ? `📧 ${p.ownerEmail}<br>` : ''}
+            ${p.ownerPhone ? `📞 ${p.ownerPhone}` : ''}
+          </div>
+          ${isLoggedIn() && !isOwner ? `
+            <button class="btn btn-primary btn-block" onclick="openModal('inquiry-modal')">📧 Contact Owner</button>
+            <button id="fav-toggle" class="btn btn-outline btn-block mt-2" onclick="toggleFavDetail(${p.id})">🤍 Save Property</button>
+          ` : isOwner ? `
+            <div class="alert alert-info">This is your property listing</div>
+            <a href="/pages/add-property.html?edit=${p.id}" class="btn btn-outline btn-block">✏️ Edit Listing</a>
+          ` : `
+            <a href="login.html" class="btn btn-primary btn-block">Login to Contact Owner</a>
+          `}
+        </div>
+
+        <!-- Quick Info -->
+        <div class="card card-body" style="background:var(--bg);">
+          <h4 style="font-size:0.9rem;margin-bottom:1rem;color:var(--gray);">PROPERTY HIGHLIGHTS</h4>
+          <div style="display:flex;flex-direction:column;gap:0.7rem;font-size:0.88rem;">
+            <div>✅ Admin Verified Listing</div>
+            <div>📐 ${p.areaSqft || 'N/A'} sq.ft area</div>
+            <div>🏙 ${p.city || 'N/A'}</div>
+            <div>👁 ${p.viewCount || 0} people viewed</div>
+            ${p.averageRating ? `<div>⭐ ${p.averageRating?.toFixed(1)} / 5.0 rating</div>` : ''}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function switchImg(thumb, url) {
+  document.getElementById('main-img').src = url;
+  document.querySelectorAll('.gallery-thumb').forEach(t => t.classList.remove('active'));
+  thumb.classList.add('active');
+}
+
+async function loadReviews() {
+  try {
+    const reviews = await Reviews.getAll(propertyId);
+    const container = document.getElementById('reviews-list');
+    if (!reviews.length) {
+      container.innerHTML = '<p style="color:var(--gray);font-size:0.9rem;">No reviews yet. Be the first to review!</p>';
+      return;
+    }
+    container.innerHTML = reviews.map(r => `
+      <div class="review-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <strong>${r.reviewer?.name || 'User'}</strong>
+          <span class="stars">${renderStars(r.rating)}</span>
+        </div>
+        <p style="color:var(--gray-dark);font-size:0.88rem;margin-top:0.4rem;">${r.comment || ''}</p>
+        <span style="font-size:0.78rem;color:var(--gray);">${formatDate(r.createdAt)}</span>
+      </div>
+    `).join('');
+  } catch {}
+}
+
+async function loadRecommended(city) {
+  try {
+    const props = await Properties.search({ city });
+    const grid = document.getElementById('recommended-grid');
+    const filtered = props.filter(p => p.id != propertyId).slice(0, 3);
+    if (!filtered.length) { grid.closest('section').style.display = 'none'; return; }
+    grid.innerHTML = filtered.map(p => buildPropertyCard(p)).join('');
+  } catch {}
+}
+
+async function sendInquiry() {
+  const msg = document.getElementById('inq-msg').value.trim();
+  if (!msg) { showAlert('danger', 'Please enter a message.', 'inq-alert'); return; }
+  try {
+    showLoader();
+    await Inquiries.send(propertyId, { message: msg });
+    showAlert('success', 'Message sent! Owner will contact you soon.', 'inq-alert');
+    document.getElementById('inq-msg').value = '';
+    setTimeout(() => closeModal('inquiry-modal'), 2000);
+  } catch (e) {
+    showAlert('danger', e.message, 'inq-alert');
+  } finally { hideLoader(); }
+}
+
+async function submitReview() {
+  const rating = parseInt(document.getElementById('rev-rating').value);
+  const comment = document.getElementById('rev-comment').value;
+  if (!rating) { showAlert('danger', 'Please select a star rating.', 'rev-alert'); return; }
+  try {
+    showLoader();
+    await Reviews.add(propertyId, { rating, comment });
+    showAlert('success', 'Review submitted!', 'rev-alert');
+    setTimeout(() => { closeModal('review-modal'); loadReviews(); }, 1500);
+  } catch (e) {
+    showAlert('danger', e.message, 'rev-alert');
+  } finally { hideLoader(); }
+}
+
+async function toggleFavDetail(id) {
+  const btn = document.getElementById('fav-toggle');
+  if (!btn) return;
+  try {
+    const isFav = btn.classList.contains('active');
+    if (isFav) {
+      await Favorites.remove(id);
+      btn.textContent = '🤍 Save Property';
+      btn.classList.remove('active');
+    } else {
+      await Favorites.add(id);
+      btn.textContent = '❤️ Saved';
+      btn.classList.add('active');
+    }
+  } catch (e) { alert(e.message); }
+}
+
+loadDetail();
+</script>
+</body>
+</html>
