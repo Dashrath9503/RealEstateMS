@@ -368,17 +368,29 @@ mvn spring-boot:run
 
 ## 📸 Screenshots
 
-> Add screenshots after setting up the project
+### 🏠 Home Page
+![Home Page](screenshots/homepage.png)
 
-| Page | Description |
-|------|-------------|
-| Home Page | Hero section with search bar |
-| Login/Register | JWT authentication |
-| Property Listings | Filter sidebar with property cards |
-| Property Detail | Full info with inquiry form |
-| Owner Dashboard | Listings and inquiries management |
-| Buyer Dashboard | Saved properties and activity |
-| Admin Panel | Analytics and approval management |
+### 🔐 Login Page
+![Login](screenshots/login.png)
+
+### 🏘️ Property Listings
+![Listings](screenshots/listings.png)
+
+### 🏡 Property Detail
+![Property Detail](screenshots/property-detail.png)
+
+### 👨‍💼 Owner Dashboard
+![Owner Dashboard](screenshots/owner-dashboard.png)
+
+### 🛒 Buyer Dashboard
+![Buyer Dashboard](screenshots/buyer-dashboard.png)
+
+### 👑 Admin Dashboard
+![Admin Dashboard](screenshots/admin-dashboard.png)
+
+### ➕ Add Property
+![Add Property](screenshots/add-property.png)
 
 ---
 
